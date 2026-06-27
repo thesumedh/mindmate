@@ -1,6 +1,8 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
 export const maxDuration = 30;
 
-// Keyword-based demo responses for different topics
+// Keyword-based demo responses for different topics (Offline/Fallback mode)
 const keywordResponses: Record<string, string[]> = {
   stress: [
     "Stress can be overwhelming. Have you tried breaking your tasks into smaller, manageable pieces?",
@@ -49,7 +51,6 @@ let responseIndex = 0;
 function getKeywordResponse(userMessage: string): string {
   const lowerMessage = userMessage.toLowerCase();
 
-  // Check for keywords
   for (const [keyword, responses] of Object.entries(keywordResponses)) {
     if (lowerMessage.includes(keyword)) {
       const response = responses[responseIndex % responses.length];
@@ -58,7 +59,6 @@ function getKeywordResponse(userMessage: string): string {
     }
   }
 
-  // Default response if no keywords match
   const defaultResponses = [
     "That's an interesting point. Can you tell me more about that?",
     "I'd like to understand better. What specifically is on your mind?",
@@ -72,21 +72,79 @@ function getKeywordResponse(userMessage: string): string {
   return response;
 }
 
+const systemPrompt = `You are MindMate, a warm, empathetic, and supportive AI mental health companion.
+Your goal is to listen non-judgmentally, offer general coping strategies (like mindfulness, box breathing, or journaling), and act as a safe space for the user to share their thoughts.
+IMPORTANT RULES:
+1. You are NOT a licensed therapist or a replacement for professional clinical care. Do not diagnose conditions or prescribe treatments.
+2. Keep your responses concise, comforting, and focused on open-ended listening.
+3. If the user expresses thoughts of self-harm, suicide, or severe crisis, gently encourage them to reach out to a professional or use the Suicide & Crisis Lifeline (988). Remind them that they are not alone.
+4. Keep the tone warm, conversational, and caring.`;
+
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+
+  if (apiKey) {
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-3.1-flash-lite",
+        systemInstruction: systemPrompt,
+      });
+
+      // Prepare conversation history
+      const history = messages.slice(0, -1).map((m: any) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
+      const lastMessage = messages[messages.length - 1]?.content || "";
+
+      const chat = model.startChat({ history });
+      const result = await chat.sendMessageStream(lastMessage);
+
+      const encoder = new TextEncoder();
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of result.stream) {
+              const text = chunk.text();
+              if (text) {
+                controller.enqueue(encoder.encode(text));
+              }
+            }
+          } catch (streamErr) {
+            console.error("Stream generation error:", streamErr);
+          } finally {
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    } catch (error: any) {
+      console.error("Gemini API call error, falling back to local response:", error);
+      // If the API call fails (e.g. quota, network), fallback to the keyword responses below
+    }
+  }
+
+  // Fallback to offline/keyword responses
   try {
-    // Get the last user message to determine context
     const lastUserMessage = messages[messages.length - 1]?.content || "";
     const demoResponse = getKeywordResponse(lastUserMessage);
 
-    // Create a stream that simulates typing
     const encoder = new TextEncoder();
     let charIndex = 0;
 
     const stream = new ReadableStream({
       start(controller) {
-        // Simulate character-by-character streaming for typing effect
         const interval = setInterval(() => {
           if (charIndex < demoResponse.length) {
             controller.enqueue(encoder.encode(demoResponse[charIndex]));
@@ -95,7 +153,7 @@ export async function POST(req: Request) {
             clearInterval(interval);
             controller.close();
           }
-        }, 30); // Typing speed
+        }, 30);
       },
     });
 
@@ -103,10 +161,10 @@ export async function POST(req: Request) {
       headers: { "Content-Type": "text/event-stream" },
     });
   } catch (error: any) {
-    console.error("[v0] Chat demo error:", error);
+    console.error("[v0] Chat fallback error:", error);
 
     return new Response(
-      JSON.stringify({ error: "Failed to generate demo response" }),
+      JSON.stringify({ error: "Failed to generate response" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }

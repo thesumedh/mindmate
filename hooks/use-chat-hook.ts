@@ -50,12 +50,24 @@ export function useCustomChat(apiEndpoint: string) {
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
   }, []);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-    const userMsg: Message = { id: `m-${idRef.current++}`, role: 'user', content: input, timestamp: Date.now() };
+  const handleSubmit = useCallback(async (eOrMsg?: React.FormEvent | string) => {
+    let messageContent = '';
+    
+    if (typeof eOrMsg === 'string') {
+      messageContent = eOrMsg;
+    } else if (eOrMsg && 'preventDefault' in eOrMsg) {
+      eOrMsg.preventDefault();
+      messageContent = input;
+      setInput('');
+    } else {
+      messageContent = input;
+      setInput('');
+    }
+
+    if (!messageContent.trim() || isLoading) return;
+
+    const userMsg: Message = { id: `m-${idRef.current++}`, role: 'user', content: messageContent, timestamp: Date.now() };
     setMessages(prev => [...prev, userMsg]);
-    setInput('');
     setIsLoading(true);
     try {
       const res = await fetch(apiEndpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: [...messages, userMsg] }) });

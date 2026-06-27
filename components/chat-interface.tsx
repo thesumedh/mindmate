@@ -40,22 +40,7 @@ export default function ChatInterface() {
   };
 
   const sendQuickAction = (prompt: string) => {
-    const syntheticEvent = {
-      preventDefault: () => {},
-      currentTarget: { reset: () => {} },
-    } as unknown as React.FormEvent<HTMLFormElement>;
-
-    // Manually inject the prompt
-    const inputEvent = {
-      target: { value: prompt },
-    } as React.ChangeEvent<HTMLInputElement>;
-    handleInputChange(inputEvent);
-
-    // Use a small timeout to let the state update
-    setTimeout(() => {
-      const el = document.getElementById('mindmate-chat-form') as HTMLFormElement | null;
-      el?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-    }, 50);
+    handleSubmit(prompt);
   };
 
   return (
