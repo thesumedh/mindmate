@@ -1,8 +1,34 @@
+/**
+ * Next.js API Route Handler: Chat Orchestrator & BFF (Backend-For-Frontend)
+ *
+ * Concept Explanation:
+ * --------------------
+ * In modern web architectures, the Next.js API route acts as a "Backend-for-Frontend" (BFF) proxy.
+ * It coordinates communication between the browser client and backend microservices (FastAPI / Gemini LLM).
+ *
+ * Fallback & Resilience Strategy (High Availability):
+ * 1. Primary: Forward the chat stream request to the dedicated Python FastAPI Backend (`http://localhost:8000/api/v1/chat/stream`).
+ * 2. Secondary: If FastAPI is offline or not deployed, directly invoke Google's Gemini SDK in Node.js.
+ * 3. Tertiary: If external API limits or network issues occur, trigger a deterministic local heuristic response generator.
+ *
+ * This guarantees 100% service uptime during live demos and interviews without crashes.
+ */
+
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// Configures maximum serverless execution duration (30 seconds)
 export const maxDuration = 30;
 
-// Keyword-based demo responses for different topics (Offline/Fallback mode)
+// Configurable FastAPI backend URL (defaults to standard local port 8000)
+const FASTAPI_BACKEND_URL = process.env.FASTAPI_BACKEND_URL || "http://127.0.0.1:8000/api/v1/chat/stream";
+
+/**
+ * Deterministic Topic-Based Fallback Responses
+ *
+ * Concept:
+ * When third-party AI APIs face rate limits, network outages, or missing credentials,
+ * having a localized rule-based engine ensures the user still receives helpful, empathetic support.
+ */
 const keywordResponses: Record<string, string[]> = {
   stress: [
     "Stress can be overwhelming. Have you tried breaking your tasks into smaller, manageable pieces?",
@@ -48,6 +74,12 @@ const keywordResponses: Record<string, string[]> = {
 
 let responseIndex = 0;
 
+/**
+ * Evaluates the user's message against keywords to select a tailored fallback response.
+ *
+ * @param userMessage - The latest message text sent by the user
+ * @returns An empathetic string response
+ */
 function getKeywordResponse(userMessage: string): string {
   const lowerMessage = userMessage.toLowerCase();
 
@@ -72,6 +104,9 @@ function getKeywordResponse(userMessage: string): string {
   return response;
 }
 
+/**
+ * System instruction defining the personality and safety boundaries for Gemini.
+ */
 const systemPrompt = `You are MindMate, a warm, empathetic, and supportive AI mental health companion.
 Your goal is to listen non-judgmentally, offer general coping strategies (like mindfulness, box breathing, or journaling), and act as a safe space for the user to share their thoughts.
 IMPORTANT RULES:
@@ -80,31 +115,75 @@ IMPORTANT RULES:
 3. If the user expresses thoughts of self-harm, suicide, or severe crisis, gently encourage them to reach out to a professional or use the Suicide & Crisis Lifeline (988). Remind them that they are not alone.
 4. Keep the tone warm, conversational, and caring.`;
 
+/**
+ * Next.js App Router POST Handler
+ *
+ * Receives the chat history, attempts streaming via FastAPI Backend,
+ * then falls back to Node Gemini SDK, and finally to local heuristics.
+ */
 export async function POST(req: Request) {
   const { messages } = await req.json();
+  const lastMessage = messages[messages.length - 1]?.content || "";
 
+  // --------------------------------------------------------------------------
+  // STEP 1: Attempt to stream from the FastAPI Backend Microservice
+  // --------------------------------------------------------------------------
+  try {
+    const fastApiResponse = await fetch(FASTAPI_BACKEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: messages.map((m: any) => ({
+          role: m.role === "assistant" ? "assistant" : "user",
+          content: m.content,
+        })),
+        stream: true,
+      }),
+      // Fast timeout: if FastAPI backend isn't running locally, fail fast to next layer
+      signal: AbortSignal.timeout(3000),
+    });
+
+    if (fastApiResponse.ok && fastApiResponse.body) {
+      // Forward the backend event stream directly to the frontend browser
+      return new Response(fastApiResponse.body, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+          "X-Backend-Source": "fastapi-microservice",
+        },
+      });
+    }
+  } catch (backendError) {
+    // FastAPI server is offline or unreachable; smoothly fall through to direct Gemini SDK
+    console.log("[Chat Proxy] FastAPI backend unavailable, transitioning to direct Gemini SDK...");
+  }
+
+  // --------------------------------------------------------------------------
+  // STEP 2: Direct Google Gemini SDK Invocation (Edge / Node.js)
+  // --------------------------------------------------------------------------
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
   if (apiKey) {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-1.5-flash",
         systemInstruction: systemPrompt,
       });
 
-      // Prepare conversation history
+      // Prepare conversation history in Gemini's expected format
       const history = messages.slice(0, -1).map((m: any) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: m.content }],
       }));
-      const lastMessage = messages[messages.length - 1]?.content || "";
 
       const chat = model.startChat({ history });
       const result = await chat.sendMessageStream(lastMessage);
 
       const encoder = new TextEncoder();
 
+      // Create a ReadableStream that enqueues chunks as Gemini produces them
       const stream = new ReadableStream({
         async start(controller) {
           try {
@@ -127,24 +206,25 @@ export async function POST(req: Request) {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
           "Connection": "keep-alive",
+          "X-Backend-Source": "direct-gemini-sdk",
         },
       });
     } catch (error: any) {
       console.error("Gemini API call error, falling back to local response:", error);
-      // If the API call fails (e.g. quota, network), fallback to the keyword responses below
     }
   }
 
-  // Fallback to offline/keyword responses
+  // --------------------------------------------------------------------------
+  // STEP 3: Local Deterministic Heuristic Streamer (Zero-Dependency Fallback)
+  // --------------------------------------------------------------------------
   try {
-    const lastUserMessage = messages[messages.length - 1]?.content || "";
-    const demoResponse = getKeywordResponse(lastUserMessage);
-
+    const demoResponse = getKeywordResponse(lastMessage);
     const encoder = new TextEncoder();
     let charIndex = 0;
 
     const stream = new ReadableStream({
       start(controller) {
+        // Simulates natural typing cadence (30ms per character)
         const interval = setInterval(() => {
           if (charIndex < demoResponse.length) {
             controller.enqueue(encoder.encode(demoResponse[charIndex]));
@@ -153,15 +233,19 @@ export async function POST(req: Request) {
             clearInterval(interval);
             controller.close();
           }
-        }, 30);
+        }, 25);
       },
     });
 
     return new Response(stream, {
-      headers: { "Content-Type": "text/event-stream" },
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "X-Backend-Source": "local-fallback-engine",
+      },
     });
   } catch (error: any) {
-    console.error("[v0] Chat fallback error:", error);
+    console.error("[Chat] Fallback error:", error);
 
     return new Response(
       JSON.stringify({ error: "Failed to generate response" }),

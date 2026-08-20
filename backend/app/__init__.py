@@ -1,0 +1,3 @@
+"""
+MindMate Backend Application Package
+"""

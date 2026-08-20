@@ -1,3 +1,17 @@
+/**
+ * MindMate Chat Interface Component
+ *
+ * Concept Explanation:
+ * --------------------
+ * This component is the primary user interaction surface for the AI Therapist Agent.
+ * It integrates:
+ * 1. **Custom Chat Hook (`useCustomChat`)**: Connects to the streaming backend API.
+ * 2. **Framer Motion Animations**: Delivers fluid transitions for incoming messages, loading bubbles, and focus borders.
+ * 3. **Crisis Triage Banner**: Immediately visible safety hotline (988 Lifeline) for at-risk users.
+ * 4. **Quick Action Dispatcher**: One-tap conversation starters for common mental health topics (anxiety, breathing, work stress).
+ * 5. **Auto-Scrolling Mechanism**: Automatically follows new tokens as they stream into view.
+ */
+
 'use client';
 
 import { useCustomChat } from '@/hooks/use-chat-hook';
@@ -9,6 +23,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 
+/**
+ * Pre-configured conversation starter prompts.
+ * Designed to reduce the cognitive friction of typing when a user is experiencing acute distress.
+ */
 const QUICK_ACTIONS = [
   { label: "I'm feeling anxious 😰", prompt: "I'm feeling anxious right now. Can you help me?" },
   { label: "Help me breathe 🌬️",     prompt: "Can you guide me through a breathing exercise?" },
@@ -16,29 +34,46 @@ const QUICK_ACTIONS = [
   { label: "Tell me something calm 🌿", prompt: "Tell me something calming and peaceful." },
   { label: "I'm stressed at work 💼",  prompt: "I'm really stressed about work. What should I do?" },
   { label: "Feeling lonely 🌙",        prompt: "I'm feeling lonely and could use some company." },
-]
+];
 
+/**
+ * Formats timestamps into a clean 12-hour or 24-hour localized format.
+ */
 function formatTime(date: Date) {
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function ChatInterface() {
+  // Integrate the custom streaming chat hook pointing to our backend API route
   const { messages, input, handleInputChange, handleSubmit, isLoading, clearHistory } = useCustomChat('/api/chat');
+  
+  // UI interaction states
   const [isFocused, setIsFocused] = useState(false);
   const [showCrisis, setShowCrisis] = useState(true);
   const [timestamps] = useState(() => new Map<string, Date>());
+  
+  // Ref for automatic scroll-to-bottom behavior
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Smoothly scrolls the viewport to the latest message as new tokens arrive.
+   */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  /**
+   * Form submission handler: dispatches active textarea content.
+   */
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!input?.trim() || isLoading) return;
     handleSubmit(e);
   };
 
+  /**
+   * Quick Action handler: sends a pre-defined prompt directly without manual typing.
+   */
   const sendQuickAction = (prompt: string) => {
     handleSubmit(prompt);
   };
@@ -46,7 +81,9 @@ export default function ChatInterface() {
   return (
     <div className="w-full min-h-screen bg-black flex flex-col">
 
-      {/* Crisis Banner */}
+      {/* -------------------------------------------------------------------- */}
+      {/* 1. Safety / Crisis Intervention Banner (24/7 Suicide & Crisis Lifeline) */}
+      {/* -------------------------------------------------------------------- */}
       <AnimatePresence>
         {showCrisis && (
           <motion.div
@@ -70,7 +107,7 @@ export default function ChatInterface() {
               <button
                 onClick={() => setShowCrisis(false)}
                 className="text-red-400/60 hover:text-red-300 ml-4 text-xs shrink-0"
-                aria-label="Dismiss"
+                aria-label="Dismiss crisis banner"
               >
                 ✕
               </button>
@@ -79,25 +116,33 @@ export default function ChatInterface() {
         )}
       </AnimatePresence>
 
-      {/* Sub-header */}
+      {/* -------------------------------------------------------------------- */}
+      {/* 2. Top Navigation Sub-Header (Status, History Clearing, Quick Links) */}
+      {/* -------------------------------------------------------------------- */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-white/50 text-xs">MindMate AI · Anonymous</span>
+          <span className="text-white/50 text-xs">MindMate AI · Anonymous & Private</span>
         </div>
         <div className="flex items-center gap-3">
           {messages.length > 0 && (
-            <button onClick={clearHistory} className="text-white/20 hover:text-white/50 text-xs transition-colors">Clear chat</button>
+            <button onClick={clearHistory} className="text-white/20 hover:text-white/50 text-xs transition-colors">
+              Clear chat
+            </button>
           )}
-          <Link href="/games" className="text-white/40 hover:text-white/70 text-xs transition-colors flex items-center gap-1">🎮 Games</Link>
+          <Link href="/games" className="text-white/40 hover:text-white/70 text-xs transition-colors flex items-center gap-1">
+            🎮 Stress Relief Games
+          </Link>
         </div>
       </div>
 
-      {/* Messages Container */}
+      {/* -------------------------------------------------------------------- */}
+      {/* 3. Messages Stream Container */}
+      {/* -------------------------------------------------------------------- */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
         {messages.length === 0 ? (
+          /* Empty State: Welcome Hero with Interactive Shader Orb */
           <div className="flex flex-col items-center justify-center min-h-[50vh] text-center gap-6">
-            {/* Greeting orb */}
             <motion.div
               className="relative flex items-center justify-center"
               initial={{ scale: 0.8, opacity: 0 }}
@@ -127,11 +172,11 @@ export default function ChatInterface() {
             <div>
               <h2 className="text-2xl font-light text-white/90 mb-1">Hey, I'm MindMate 👋</h2>
               <p className="text-white/40 text-sm font-light max-w-sm">
-                Your anonymous AI companion. Share anything on your mind — I'm here to listen, no judgment.
+                Your anonymous AI companion. Share anything on your mind — I'm here to listen without judgment.
               </p>
             </div>
 
-            {/* Quick Action Chips */}
+            {/* Quick Action Chips for Instant Interaction */}
             <div className="flex flex-wrap gap-2 justify-center max-w-lg">
               {QUICK_ACTIONS.map((action) => (
                 <button
@@ -145,8 +190,9 @@ export default function ChatInterface() {
             </div>
           </div>
         ) : (
+          /* Populated Conversation List */
           <div className="space-y-4 max-w-4xl mx-auto w-full">
-            {/* Quick actions compact strip */}
+            {/* Collapsible Quick Actions Strip */}
             <details className="group">
               <summary className="flex items-center gap-1.5 text-white/30 text-xs cursor-pointer hover:text-white/50 transition-colors list-none w-fit">
                 <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
@@ -165,11 +211,12 @@ export default function ChatInterface() {
               </div>
             </details>
 
+            {/* Message Bubbles */}
             {messages.map((message) => {
               if (!timestamps.has(message.id)) {
-                timestamps.set(message.id, new Date())
+                timestamps.set(message.id, new Date());
               }
-              const ts = timestamps.get(message.id)!
+              const ts = timestamps.get(message.id)!;
               return (
                 <motion.div
                   key={message.id}
@@ -191,11 +238,12 @@ export default function ChatInterface() {
                     {message.role === 'assistant' ? 'MindMate · ' : ''}{formatTime(ts)}
                   </span>
                 </motion.div>
-              )
+              );
             })}
           </div>
         )}
 
+        {/* Typing / Generation Indicator */}
         {isLoading && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -214,11 +262,14 @@ export default function ChatInterface() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
+      {/* -------------------------------------------------------------------- */}
+      {/* 4. Chat Input & Action Bar */}
+      {/* -------------------------------------------------------------------- */}
       <div className="flex-shrink-0 px-4 py-5 sm:px-6 lg:px-8">
         <div className="w-full max-w-4xl mx-auto relative">
+          {/* Animated Shader Glowing Border on Input Focus */}
           <motion.div
-            className="absolute w-full h-full z-0 flex items-center justify-center"
+            className="absolute w-full h-full z-0 flex items-center justify-center pointer-events-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: isFocused ? 1 : 0 }}
             transition={{ duration: 0.8 }}
@@ -250,9 +301,10 @@ export default function ChatInterface() {
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
                   onKeyDown={(e) => {
+                    // Enter sends message, Shift+Enter creates a new line
                     if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      onSubmit(e as any)
+                      e.preventDefault();
+                      onSubmit(e as any);
                     }
                   }}
                 />
@@ -300,7 +352,7 @@ export default function ChatInterface() {
           </motion.div>
 
           <p className="text-center text-white/15 text-[10px] mt-3">
-            MindMate is not a replacement for professional mental health care. If you're in crisis, please call{' '}
+            MindMate is an AI companion and does not replace clinical therapy. If you are in crisis, call or text{' '}
             <a href="tel:988" className="underline hover:text-white/30">988</a>.
           </p>
         </div>

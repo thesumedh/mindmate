@@ -1,250 +1,130 @@
-# 🧠 MindMate – AI Mental Health Companion
+# 🧠 MindMate – AI Mental Health & Wellness Companion
 
-> Anonymous, empathetic AI mental health support. Chat, play games, and find calm — no account needed.
+> **AI Therapist Agent** built with a clean **FastAPI backend microservice** and **Next.js** frontend. Features safety guardrails, intent detection, and real-time streaming.
 
 ![MindMate](https://img.shields.io/badge/MindMate-AI%20Companion-orange?style=for-the-badge&logo=brain)
-![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-Frontend-black?style=for-the-badge&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 ---
 
-## 📖 Overview
+## 🏛️ The Architecture (Simple & Clear)
 
-MindMate is a web-based mental health support application that provides:
-- **Anonymous AI Chat** — no account, no data stored, no judgment
-- **Evidence-based techniques** — CBT-inspired responses, breathing exercises
-- **Mindful Games Arcade** — take a break with therapeutic and classic mini-games
-- **Research Documentation** — in-app paper on the science behind AI-assisted mental health
+```
+[ Frontend: Next.js / React ]
+              │
+              ▼  (HTTP / Server-Sent Events Streaming)
+[ Backend: FastAPI Microservice ]
+              │
+              ├── 🛡️ Layer 1: Security Guardrails (Crisis Triage + Prompt Injection Defense)
+              │
+              ├── 🧠 Layer 2: Agent Decision Engine (Intent Classification + Context Pruner)
+              │
+              └── ⚡ Layer 3: AI Streamer & Fallback (Google Gemini 1.5 ──► Heuristic Backup)
+```
 
-Built as an academic research project by students of **Parvatibai Genba Sopanrao Moze College of Engineering, Pune**.
+### The 3 Layers Explained Simply:
 
----
+- **Layer 1: Security Guardrails (`app/agent/guardrails.py`)**
+  - **Crisis Triage:** Deterministically detects self-harm keywords $\to$ bypasses model $\to$ immediately returns 24/7 **988 Crisis Lifeline**.
+  - **Prompt Injection Defense:** Blocks adversarial attempts to hijack the system (e.g., *"ignore previous instructions"*).
+  - *Why interviewers love this:* It proves you understand defense-in-depth and never trust raw user input.
 
-## ✨ Features
+- **Layer 2: Agent Decision Engine (`app/agent/therapist_agent.py`)**
+  - **Intent Classification:** Understands what the user needs:
+    - `COPING_EXERCISE` $\to$ Guides through Box Breathing (4-4-4-4).
+    - `ANXIETY_STRESS` $\to$ Offers grounding techniques (5-4-3-2-1).
+    - `VENTING` $\to$ Provides non-judgmental active listening.
+  - **Context Memory Pruning:** Keeps the last 15 messages so the context stays relevant without token bloat.
 
-### 💬 Anonymous Chat
-- AI companion powered by keyword-aware responses (Gemini-ready architecture)
-- **Quick action chips** — one-tap prompts for common feelings
-- **Typing animation** — real-time streaming character-by-character response
-- **Message timestamps**
-- **Crisis helpline banner** — immediate access to 988 (Suicide & Crisis Lifeline)
-- **Enter to send** keyboard shortcut · Shift+Enter for new line
-- Fully anonymous — no login, no account, no tracking
-
-### 🎮 MindMate Arcade (23 Games)
-
-#### 🧘 Wellness Games (NEW)
-| Game | Description |
-|------|-------------|
-| **Box Breathing** | 4-4-4-4 animated breathing circle for anxiety relief |
-| **Aim Trainer** | Click targets to sharpen focus and coordination |
-| **Number Memory** | Memorize growing digit sequences — cognitive exercise |
-
-#### 🕹️ Classic Arcade
-Snake, Pong, Breakout, Flappy Triangle, Sheep Run, Coin Collector, Bubble Pop
-
-#### 🧩 Puzzle
-2048, Tetris, Memory Match, Minesweeper, Word Scramble
-
-#### ⚔️ Strategy
-Tic Tac Toe, Connect Four, Orbit Defense
-
-#### ⚡ Action
-Reaction Time, Whack-a-Mole, Simon Says, Color Match, Space Invaders
-
-### 😊 Mood Widget
-- Daily mood check-in on home screen
-- Stores mood locally — no server needed
-- 5 emoji states from 😔 to 😊
-
-### 📄 Research Docs
-- Full academic paper on AI-powered mental health chatbots
-- Collapsible sections with table of contents
+- **Layer 3: AI Streamer & Fallback Engine**
+  - **SSE Streaming:** Yields tokens asynchronously chunk-by-chunk for an instant, real-time typing feel.
+  - **Circuit Breaker Fallback:** If the Gemini API is rate-limited or offline, a local rule-based response engine takes over. The user never sees a broken page or 500 error.
 
 ---
 
-## 🛠️ Tech Stack
+## 🗺️ Code Map & Key Talking Points
 
-| Layer | Technology |
-|-------|-----------|
-| **Framework** | Next.js 14 (App Router) |
-| **Language** | TypeScript 5 |
-| **Styling** | TailwindCSS 4 |
-| **UI Components** | shadcn/ui + Radix UI |
-| **Animations** | Framer Motion |
-| **Shader Effects** | @paper-design/shaders-react |
-| **Fonts** | Figtree + Instrument Serif (Google Fonts) + Geist Mono |
-| **Icons** | Lucide React |
-| **AI Ready** | @ai-sdk/google, @google/generative-ai |
+| File Path | What It Does | Key Talking Point |
+|---|---|---|
+| [`backend/app/main.py`](file:///f:/hackthon/Resume_%20Projects/mindmate/backend/app/main.py) | FastAPI app entry point | ASGI async event loop, CORS middleware, latency tracking (`X-Process-Time`). |
+| [`backend/app/agent/guardrails.py`](file:///f:/hackthon/Resume_%20Projects/mindmate/backend/app/agent/guardrails.py) | Security & safety firewall | Deterministic regex triage for emergency 988 dispatch & jailbreak prevention. |
+| [`backend/app/agent/therapist_agent.py`](file:///f:/hackthon/Resume_%20Projects/mindmate/backend/app/agent/therapist_agent.py) | Core Agent brain | Intent classification, context window management, and async streaming generator. |
+| [`backend/app/routers/chat.py`](file:///f:/hackthon/Resume_%20Projects/mindmate/backend/app/routers/chat.py) | Chat streaming endpoint | Server-Sent Events (`text/event-stream`) with `StreamingResponse`. |
+| [`backend/app/routers/health.py`](file:///f:/hackthon/Resume_%20Projects/mindmate/backend/app/routers/health.py) | Health probe | Standard readiness probe for Kubernetes / container orchestration. |
+| [`hooks/use-chat-hook.ts`](file:///f:/hackthon/Resume_%20Projects/mindmate/hooks/use-chat-hook.ts) | React streaming client | Uses Web Streams API (`ReadableStream.getReader()`) and `TextDecoder`. |
 
 ---
 
-## 🚀 Getting Started
+## ✨ Key Features (Simple Summary)
 
-### Prerequisites
-- Node.js 18+
-- npm 9+
+1. **Safety First:** If a user expresses self-harm or crisis, it immediately provides the 24/7 **988 Suicide & Crisis Lifeline**.
+2. **Intent Detection:** Understands whether the user needs breathing exercises, stress advice, or just someone to listen.
+3. **High Reliability & Fallback:** If the external AI API is unreachable or rate-limited, built-in backup responses prevent the app from ever crashing.
+4. **Live Streaming:** Streams text token-by-token for a smooth, conversational typing feel.
+5. **Private Journal & Wellness Games:** Local-first encrypted storage for private thoughts and stress-relief arcade games.
 
-### Installation
+---
 
+## 🚀 Quick Start Guide
+
+### 1. Start Backend (FastAPI)
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/mindmate.git
-cd mindmate
+cd backend
+.venv\Scripts\activate
+python run.py
+```
+- API Docs (Swagger): [http://localhost:8000/docs](http://localhost:8000/docs)
+- Health Check: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
 
-# Install dependencies (legacy-peer-deps needed for React 19 + Next 14)
-npm install --legacy-peer-deps
-
-# Start the development server
+### 2. Start Frontend (Next.js)
+```bash
 npm run dev
 ```
+- Web App: [http://localhost:3000](http://localhost:3000)
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### Environment Variables (Optional)
-
-To enable real AI responses via Google Gemini, create a `.env.local` file:
-
-```env
-GOOGLE_GENERATIVE_AI_API_KEY=your_gemini_api_key_here
+### 3. Run Backend Verification Tests
+```bash
+cd backend
+.venv\Scripts\activate
+python test_api.py
 ```
-
-> Without this key, the app uses built-in keyword-based demo responses — perfect for offline use.
 
 ---
 
-## 📁 Project Structure
+## 📁 Simple Folder Structure
 
 ```
 mindmate/
-├── app/
-│   ├── api/chat/          # Chat API route (streaming responses)
-│   ├── chat/              # Chat page
-│   ├── docs/              # Research paper page
-│   ├── games/             # Games arcade page
-│   ├── globals.css        # Global styles
-│   └── layout.tsx         # Root layout + metadata
+├── backend/                  # Python FastAPI Backend
+│   ├── app/
+│   │   ├── agent/            # Agent logic, safety filter, intent detection
+│   │   ├── models/           # Pydantic request/response schemas
+│   │   ├── routers/          # API endpoints (/chat, /analyze, /health)
+│   │   └── main.py           # FastAPI app entry point
+│   ├── test_api.py           # Automated tests
+│   └── run.py                # Server runner
 │
-├── components/
-│   ├── ui/                # shadcn/ui components
-│   ├── chat-interface.tsx # Main chat UI with quick actions + crisis banner
-│   ├── game-dashboard.tsx # Games arcade with 23 games
-│   ├── breathing-game.tsx # Box breathing therapeutic game
-│   ├── aim-trainer-game.tsx    # Focus training game
-│   ├── number-memory-game.tsx  # Cognitive memory game
-│   ├── game-placeholder.tsx    # "Coming Soon" stub for future games
-│   ├── mood-widget.tsx    # Daily mood check-in widget
-│   ├── header.tsx         # Navigation header
-│   ├── hero-content.tsx   # Landing page hero section
-│   ├── pulsing-circle.tsx # Animated background element
-│   └── shader-background.tsx   # WebGL shader background
+├── app/                      # Next.js App Router (Pages & BFF API)
+│   ├── api/chat/route.ts     # Proxy to FastAPI with fallback
+│   ├── chat/page.tsx         # Chat page
+│   ├── journal/page.tsx      # Private journal page
+│   ├── resources/page.tsx    # Crisis hotlines
+│   └── docs/page.tsx         # Research paper
 │
-├── hooks/
-│   ├── use-chat-hook.ts   # Custom chat state + streaming logic
-│   └── use-mobile.ts      # Mobile detection hook
-│
-└── lib/
-    └── utils.ts           # Utility functions
+├── components/               # React UI components
+└── hooks/                    # Custom React hooks (streaming chat hook)
 ```
 
 ---
 
-## 🧪 AI Chat Architecture
+## 👥 Authors
+Developed as an engineering research project by:
+- **Sumedh Chandanshive**
+- **Ketan Choraghe**
+- **Tejas Khairnar**
+- **Krushna Bayas**
 
-The chat API (`/api/chat`) currently uses **keyword-based responses** that stream character-by-character for a realistic typing effect. It recognizes topics including:
-
-- `stress`, `anxiety`, `depression` → empathetic mental health responses
-- `work`, `relationship` → situational guidance
-- `hello`, `help`, `game` → contextual responses
-
-### Upgrading to Real Gemini AI
-
-Replace the route logic in `app/api/chat/route.ts`:
-
-```typescript
-import { GoogleGenerativeAI } from '@google/generative-ai'
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!)
-
-export async function POST(req: Request) {
-  const { messages } = await req.json()
-  const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
-  
-  const result = await model.generateContentStream(
-    messages.map(m => m.content).join('\n')
-  )
-  
-  const stream = new ReadableStream({
-    async start(controller) {
-      for await (const chunk of result.stream) {
-        controller.enqueue(new TextEncoder().encode(chunk.text()))
-      }
-      controller.close()
-    }
-  })
-
-  return new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } })
-}
-```
-
----
-
-## 🔒 Privacy & Ethics
-
-- **No authentication** — fully anonymous by design
-- **No user data stored** — conversations exist only in browser memory
-- **Mood data** — stored only in `localStorage`, never sent to any server
-- **Crisis resources** — 988 helpline prominently displayed
-- **AI disclaimer** — clearly states MindMate supplements, not replaces, professional care
-
----
-
-## 📚 Research & Academic Context
-
-This project is based on a research paper: **"MindMate: An AI-Powered Chatbot for Mental Health Support"**
-
-**Authors:** Sumedh Chandanshive, Ketan Choraghe, Tejas Khairnar, Krushna Bayas  
-**Institution:** Parvatibai Genba Sopanrao Moze College of Engineering, Wagholi Pune 412207  
-**Advisor:** Prof. Vrushali Dhanokar
-
-Key references:
-- Woebot randomized trial: AI CBT chatbots reduce anxiety and depression
-- WHO: 1 billion+ people worldwide live with anxiety/depression
-- Stanford findings on LLM chatbot safety in mental health contexts
-
-View the full paper at [/docs](http://localhost:3000/docs) in the running app.
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/new-game`
-3. Commit changes: `git commit -m 'Add: new game component'`
-4. Push to branch: `git push origin feature/new-game`
-5. Open a Pull Request
-
----
-
-## ⚠️ Disclaimer
-
-MindMate is a research project and is **not a replacement for professional mental health care**. If you are experiencing a mental health crisis, please contact:
-
-- **988 Suicide & Crisis Lifeline** — Call or text `988` (US)
-- **Crisis Text Line** — Text HOME to `741741`
-- **International Association for Suicide Prevention** — https://www.iasp.info/resources/Crisis_Centres/
-
----
-
-## 📄 License
-
-MIT License — see [LICENSE](LICENSE) for details.
-
----
-
-<div align="center">
-  Made with 💙 for mental wellness
-  <br />
-  <sub>MindMate · Evidence-based · Anonymous · Always available</sub>
-</div>
+*Parvatibai Genba Sopanrao Moze College of Engineering, Wagholi, Pune.*  
+*Advisor: Prof. Vrushali Dhanokar*
