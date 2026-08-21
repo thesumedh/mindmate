@@ -1,0 +1,66 @@
+# docker-compose.yml — MindMate Full Stack
+#
+# Starts all services with one command: docker-compose up -d
+#
+# Services:
+#   mindmate-backend  — FastAPI AI Therapist API server
+#   mindmate-frontend — Next.js frontend (optional, for demo)
+#
+# API available at: http://localhost:8000/docs
+
+services:
+
+  # --------------------------------------------------------
+  #  MindMate Backend — FastAPI AI Therapist Agent
+  #
+  #  Resume bullets this backs:
+  #  - "Built AI-powered conversational agent using LLM APIs"
+  #  - "Orchestrated prompt pipelines and response handling"
+  #  - "Designed backend workflow for context management and session continuity"
+  # --------------------------------------------------------
+  mindmate-backend:
+    build:
+      context: ./backend          # Dockerfile is inside the backend/ directory
+      dockerfile: Dockerfile
+    image: mindmate-backend:latest
+    container_name: mindmate-backend
+    restart: unless-stopped
+    environment:
+      # LLM API Keys — injected from .env file (never hardcoded in source!)
+      # Copy .env.example to .env and fill in your keys
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ENVIRONMENT: production
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')\""]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    volumes:
+      # Mount .env for secrets (gitignored — never commit API keys!)
+      - ./.env:/app/.env:ro
+
+  # --------------------------------------------------------
+  #  MindMate Frontend — Next.js (optional for full-stack demo)
+  #  Run: docker-compose up -d mindmate-frontend
+  # --------------------------------------------------------
+  mindmate-frontend:
+    build:
+      context: .                  # Next.js app is at root
+      dockerfile: frontend.Dockerfile
+    image: mindmate-frontend:latest
+    container_name: mindmate-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      mindmate-backend:
+        condition: service_healthy
+    profiles:
+      - full-stack     # Only start when: docker-compose --profile full-stack up
